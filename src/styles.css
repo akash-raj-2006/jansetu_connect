@@ -1,0 +1,371 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * JanSetu design system — "Paper & Ink" civic data report.
+ * Warm paper canvas, ink typography, mono headings, ruled data surfaces.
+ * All colors are oklch tokens. Never hardcode colors in components.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 3px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 2px);
+  --radius-2xl: calc(var(--radius) + 4px);
+  --radius-3xl: calc(var(--radius) + 8px);
+  --radius-4xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-cat-water: var(--cat-water);
+  --color-cat-roads: var(--cat-roads);
+  --color-cat-electricity: var(--cat-electricity);
+  --color-cat-sanitation: var(--cat-sanitation);
+  --color-cat-other: var(--cat-other);
+  --color-nav-overview: var(--nav-overview);
+  --color-nav-report: var(--nav-report);
+  --color-nav-track: var(--nav-track);
+  --color-nav-data: var(--nav-data);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-display: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  --radius: 0.375rem;
+
+  /* paper */
+  --background: oklch(0.962 0.008 85);
+  --foreground: oklch(0.17 0.004 60);
+
+  --surface: oklch(0.992 0.004 85);
+  --surface-2: oklch(0.925 0.009 85);
+
+  --card: oklch(0.992 0.004 85);
+  --card-foreground: oklch(0.17 0.004 60);
+  --popover: oklch(0.992 0.004 85);
+  --popover-foreground: oklch(0.17 0.004 60);
+
+  /* ink */
+  --primary: oklch(0.2 0.004 60);
+  --primary-foreground: oklch(0.97 0.008 85);
+
+  --secondary: oklch(0.915 0.009 85);
+  --secondary-foreground: oklch(0.2 0.004 60);
+
+  --muted: oklch(0.925 0.009 85);
+  --muted-foreground: oklch(0.5 0.008 70);
+
+  /* signal (annotation red used sparingly, like a proof mark) */
+  --accent: oklch(0.53 0.17 32);
+  --accent-foreground: oklch(0.98 0.006 85);
+
+  --destructive: oklch(0.53 0.19 27);
+  --destructive-foreground: oklch(0.98 0.006 85);
+  --warning: oklch(0.63 0.13 70);
+  --warning-foreground: oklch(0.98 0.006 85);
+  --success: oklch(0.52 0.1 155);
+  --success-foreground: oklch(0.98 0.006 85);
+
+  --border: oklch(0.87 0.01 85);
+  --border-strong: oklch(0.35 0.006 70);
+  --input: oklch(0.86 0.01 85);
+  --ring: oklch(0.2 0.004 60);
+
+  /* categorical data ink — vibrant so charts read at a glance */
+  --cat-water: oklch(0.6 0.19 245);
+  --cat-roads: oklch(0.7 0.18 55);
+  --cat-electricity: oklch(0.75 0.16 95);
+  --cat-sanitation: oklch(0.62 0.22 340);
+  --cat-other: oklch(0.62 0.06 255);
+
+  --chart-1: oklch(0.6 0.19 245);
+  --chart-2: oklch(0.7 0.18 55);
+  --chart-3: oklch(0.75 0.16 95);
+  --chart-4: oklch(0.62 0.22 340);
+  --chart-5: oklch(0.62 0.06 255);
+
+  /* navigation identity colours — one hue per section */
+  --nav-overview: oklch(0.58 0.2 265);
+  --nav-report: oklch(0.6 0.22 25);
+  --nav-track: oklch(0.58 0.15 175);
+  --nav-data: oklch(0.55 0.22 305);
+
+  --sidebar: oklch(0.945 0.009 85);
+  --sidebar-foreground: oklch(0.17 0.004 60);
+  --sidebar-primary: oklch(0.2 0.004 60);
+  --sidebar-primary-foreground: oklch(0.97 0.008 85);
+  --sidebar-accent: oklch(0.915 0.009 85);
+  --sidebar-accent-foreground: oklch(0.2 0.004 60);
+  --sidebar-border: oklch(0.87 0.01 85);
+  --sidebar-ring: oklch(0.2 0.004 60);
+}
+
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+    font-weight: 600;
+  }
+}
+
+/* A "sheet": the primary paper surface for data blocks. */
+@utility sheet {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+@utility sheet-ruled {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--border-strong);
+}
+
+/* Legacy alias kept so shared components stay consistent. */
+@utility glass {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+@utility glow-primary {
+  box-shadow: 3px 3px 0 0 color-mix(in oklab, var(--border-strong) 22%, transparent);
+}
+
+@utility glow-accent {
+  box-shadow: 3px 3px 0 0 color-mix(in oklab, var(--accent) 20%, transparent);
+}
+
+@utility text-bridge {
+  color: var(--accent);
+}
+
+@utility bg-bridge {
+  background: var(--primary);
+}
+
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+@utility grid-lines {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--border) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--border) 70%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@utility animate-pulse-ring {
+  animation: pulse-ring 2.4s ease-out infinite;
+}
+
+/* Vibrant tinted surface driven by an inline --tint custom property. */
+@utility tint-surface {
+  background: color-mix(in oklab, var(--tint) 10%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--tint) 35%, var(--border));
+}
+
+@utility tint-chip {
+  background: color-mix(in oklab, var(--tint) 14%, transparent);
+  color: var(--tint);
+  border: 1px solid color-mix(in oklab, var(--tint) 32%, transparent);
+}
+
+@utility tint-bar {
+  background: linear-gradient(90deg, var(--tint), color-mix(in oklab, var(--tint) 45%, var(--surface)));
+}
+
+/* ── Dark ("space") mode ────────────────────────────────────────────
+   Toggled by adding `.dark` to <html>. Near-black canvas, bright ink,
+   and boosted signal hues so charts stay legible at WCAG AA. */
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(0.16 0.012 280);
+  --foreground: oklch(0.97 0.004 280);
+
+  --surface: oklch(0.21 0.014 280);
+  --surface-2: oklch(0.26 0.016 280);
+
+  --card: oklch(0.21 0.014 280);
+  --card-foreground: oklch(0.97 0.004 280);
+  --popover: oklch(0.21 0.014 280);
+  --popover-foreground: oklch(0.97 0.004 280);
+
+  --primary: oklch(0.95 0.004 280);
+  --primary-foreground: oklch(0.17 0.012 280);
+
+  --secondary: oklch(0.26 0.016 280);
+  --secondary-foreground: oklch(0.96 0.004 280);
+
+  --muted: oklch(0.26 0.016 280);
+  --muted-foreground: oklch(0.75 0.012 280);
+
+  --accent: oklch(0.72 0.17 35);
+  --accent-foreground: oklch(0.17 0.012 280);
+
+  --destructive: oklch(0.68 0.18 27);
+  --warning: oklch(0.78 0.14 75);
+  --success: oklch(0.72 0.14 158);
+
+  --border: oklch(0.33 0.016 280);
+  --border-strong: oklch(0.62 0.02 280);
+  --input: oklch(0.36 0.016 280);
+  --ring: oklch(0.8 0.01 280);
+
+  --cat-water: oklch(0.74 0.16 240);
+  --cat-roads: oklch(0.79 0.15 60);
+  --cat-electricity: oklch(0.86 0.15 98);
+  --cat-sanitation: oklch(0.75 0.19 340);
+  --cat-other: oklch(0.76 0.05 255);
+  --chart-1: var(--cat-water);
+  --chart-2: var(--cat-roads);
+  --chart-3: var(--cat-electricity);
+  --chart-4: var(--cat-sanitation);
+  --chart-5: var(--cat-other);
+
+  --nav-overview: oklch(0.74 0.16 268);
+  --nav-report: oklch(0.74 0.18 28);
+  --nav-track: oklch(0.76 0.13 178);
+  --nav-data: oklch(0.74 0.18 305);
+
+  --sidebar: oklch(0.19 0.013 280);
+  --sidebar-foreground: oklch(0.97 0.004 280);
+  --sidebar-primary: oklch(0.95 0.004 280);
+  --sidebar-primary-foreground: oklch(0.17 0.012 280);
+  --sidebar-accent: oklch(0.26 0.016 280);
+  --sidebar-accent-foreground: oklch(0.96 0.004 280);
+  --sidebar-border: oklch(0.33 0.016 280);
+  --sidebar-ring: oklch(0.8 0.01 280);
+}
+
+.dark .tint-surface {
+  background: color-mix(in oklab, var(--tint) 14%, var(--surface));
+  border-color: color-mix(in oklab, var(--tint) 45%, var(--border));
+}
+
+.dark .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) grayscale(0.35);
+}
+
+
+/* ── Ambient background animation (paper drift + ink blooms) ───────── */
+@keyframes grid-drift {
+  0% {
+    background-position:
+      0 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      32px 32px,
+      32px 32px;
+  }
+}
+
+@keyframes bloom-float {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2.5rem, -1.75rem, 0) scale(1.12);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@utility animate-grid-drift {
+  animation: grid-drift 22s linear infinite;
+}
+
+@utility animate-bloom-float {
+  animation: bloom-float 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-grid-drift,
+  .animate-bloom-float {
+    animation: none;
+  }
+}
+
+/* Keeps the navy half of the brand mark legible on the near-black canvas. */
+.dark .jansetu-logo {
+  filter: drop-shadow(0 0 12px oklch(0.98 0 0 / 0.55)) brightness(1.08);
+}
