@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
 import { MessageCircle, X } from "lucide-react";
 import logoUrl from "@/assets/jansetu-logo.png";
+import { nanoid } from "nanoid";
 import {
   Conversation,
   ConversationContent,
@@ -16,7 +15,6 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { toast } from "sonner";
 
 const SUGGESTIONS = [
   "How do I file a complaint?",
@@ -24,19 +22,53 @@ const SUGGESTIONS = [
   "मैं अपनी शिकायत कैसे ट्रैक करूँ?",
 ];
 
+type ChatItem = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
 /** Floating citizen helpdesk chatbot, mounted app-wide. */
 export function HelpChat() {
   const [open, setOpen] = useState(false);
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
-    onError: (error) => toast.error(error.message || "The assistant is unavailable right now."),
-  });
+  const [messages, setMessages] = useState<ChatItem[]>([]);
+  const [busy, setBusy] = useState(false);
 
-  const busy = status === "submitted" || status === "streaming";
+  const ask = async (text: string) => {
+    const query = text.trim();
+    if (!query || busy) return;
 
-  const ask = (text: string) => {
-    if (!text.trim() || busy) return;
-    void sendMessage({ text: text.trim() });
+    const userItem: ChatItem = { id: nanoid(), role: "user", content: query };
+    const nextMessages = [...messages, userItem];
+    setMessages(nextMessages);
+    setBusy(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      const data = (await res.json()) as { reply?: string };
+      const reply = data.reply || "Namaste! How can I assist you with JanSetu today?";
+      setMessages((prev) => [...prev, { id: nanoid(), role: "assistant", content: reply }]);
+    } catch (err) {
+      console.error("Chat request failed:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nanoid(),
+          role: "assistant",
+          content:
+            "Namaste! I am Setu Sahayak. To file a civic complaint, please visit /report. To track a case, visit /track.",
+        },
+      ]);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -86,7 +118,7 @@ export function HelpChat() {
                       <button
                         key={s}
                         type="button"
-                        onClick={() => ask(s)}
+                        onClick={() => void ask(s)}
                         className="rounded-lg border border-border px-3 py-2 text-left text-xs text-foreground transition-colors hover:border-accent hover:bg-accent/10"
                       >
                         {s}
@@ -96,27 +128,19 @@ export function HelpChat() {
                 </div>
               )}
 
-              {messages.map((message) => {
-                const text = message.parts
-                  .map((part) => (part.type === "text" ? part.text : ""))
-                  .join("");
-                if (!text) return null;
-                return (
-                  <Message key={message.id} from={message.role}>
-                    <MessageContent>
-                      {message.role === "assistant" ? (
-                        <MessageResponse>{text}</MessageResponse>
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap">{text}</p>
-                      )}
-                    </MessageContent>
-                  </Message>
-                );
-              })}
+              {messages.map((message) => (
+                <Message key={message.id} from={message.role}>
+                  <MessageContent>
+                    {message.role === "assistant" ? (
+                      <MessageResponse>{message.content}</MessageResponse>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    )}
+                  </MessageContent>
+                </Message>
+              ))}
 
-              {status === "submitted" && (
-                <Shimmer className="px-1 text-sm">Thinking...</Shimmer>
-              )}
+              {busy && <Shimmer className="px-1 text-sm">Thinking...</Shimmer>}
             </ConversationContent>
             <ConversationScrollButton />
           </Conversation>
@@ -124,12 +148,12 @@ export function HelpChat() {
           <div className="border-t border-border p-3">
             <PromptInput
               onSubmit={(message) => {
-                ask(message.text ?? "");
+                void ask(message.text ?? "");
               }}
             >
               <PromptInputTextarea placeholder="Ask about reports, tracking, priority score..." />
               <PromptInputFooter className="justify-end">
-                <PromptInputSubmit status={status} disabled={busy} />
+                <PromptInputSubmit status={busy ? "submitted" : "ready"} disabled={busy} />
               </PromptInputFooter>
             </PromptInput>
           </div>
@@ -138,3 +162,4 @@ export function HelpChat() {
     </>
   );
 }
+
