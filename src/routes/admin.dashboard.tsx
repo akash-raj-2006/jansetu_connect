@@ -44,15 +44,6 @@ export const Route = createFileRoute("/admin/dashboard")({
     }
 
     try {
-      const result = await getMyAdminRole();
-      if (result?.role) {
-        return { adminRole: result.role };
-      }
-    } catch {
-      /* ignore server fn error */
-    }
-
-    try {
       const { data } = await supabase.auth.getSession();
       if (data?.session?.user?.email) {
         localStorage.setItem("jansetu_official", data.session.user.email);
@@ -120,7 +111,11 @@ function AdminPage() {
       localStorage.removeItem("jansetu_official");
     }
     await supabase.auth.signOut();
-    void navigate({ to: "/admin/login" });
+    if (typeof window !== "undefined") {
+      window.location.href = "/admin/login";
+    } else {
+      void navigate({ to: "/admin/login" });
+    }
   }
 
 

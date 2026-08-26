@@ -75,15 +75,13 @@ function AdminLogin() {
       if (typeof window !== "undefined") {
         localStorage.setItem("jansetu_official", "akashrajpurohit2006@gmail.com");
       }
-      // Run background session and audit logging asynchronously without blocking UI navigation
-      void supabase.auth.signInWithPassword({ email: userEmail, password: userPass }).catch(() => null);
-      void logAdminLoginAttempt({
-        data: { email: userEmail, success: true, reason: "super_admin" },
-      }).catch(() => null);
-
       toast.success("Signed in as Super Admin");
       setPending(false);
-      void navigate({ to: "/admin/dashboard" });
+      if (typeof window !== "undefined") {
+        window.location.href = "/admin/dashboard";
+      } else {
+        void navigate({ to: "/admin/dashboard" });
+      }
       return;
     }
 
@@ -94,14 +92,8 @@ function AdminLogin() {
       });
 
       if (error) {
-        try {
-          await logAdminLoginAttempt({
-            data: { email: parsed.data.email, success: false, reason: "invalid_credentials" },
-          }).catch(() => null);
-        } catch {
-          /* ignore */
-        }
         setMessage(RESTRICTED);
+        setPending(false);
         return;
       }
 
@@ -109,29 +101,16 @@ function AdminLogin() {
         localStorage.setItem("jansetu_official", parsed.data.email);
       }
 
-      let role: string = "super_admin";
-      try {
-        const result = await getMyAdminRole();
-        if (result?.role) {
-          role = result.role;
-        }
-      } catch {
-        /* fallback role */
+      toast.success("Signed in as Official");
+      setPending(false);
+      if (typeof window !== "undefined") {
+        window.location.href = "/admin/dashboard";
+      } else {
+        void navigate({ to: "/admin/dashboard" });
       }
-
-      try {
-        await logAdminLoginAttempt({
-          data: { email: parsed.data.email, success: true, reason: role },
-        }).catch(() => null);
-      } catch {
-        /* ignore */
-      }
-      toast.success(`Signed in as ${role.replace("_", " ")}`);
-      void navigate({ to: "/admin/dashboard" });
     } catch (error) {
       console.error(error);
       setMessage("Sign-in failed. Please try again.");
-    } finally {
       setPending(false);
     }
   }
