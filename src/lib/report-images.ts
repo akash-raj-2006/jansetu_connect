@@ -50,8 +50,8 @@ export function uploadImage(
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
 ): Promise<string> {
-  const url = import.meta.env["VITE_SUPABASE_URL"] as string;
-  const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string;
+  const url = (import.meta.env["VITE_SUPABASE_URL"] || "https://rzjvklvsbrrgfnhxmdgq.supabase.co") as string;
+  const key = (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || "sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu") as string;
   const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.jpg`;
 
   return new Promise((resolve, reject) => {

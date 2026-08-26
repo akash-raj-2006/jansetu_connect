@@ -3,8 +3,15 @@ import type { Database } from "@/integrations/supabase/types";
 
 /** Server-side publishable client for public reads/writes inside server functions. */
 export function createPublicServerClient() {
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
-  const url = process.env["SUPABASE_URL"]!;
+  const key =
+    process.env["SUPABASE_PUBLISHABLE_KEY"] ||
+    process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+    "sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu";
+  const url =
+    process.env["SUPABASE_URL"] ||
+    process.env["VITE_SUPABASE_URL"] ||
+    "https://rzjvklvsbrrgfnhxmdgq.supabase.co";
+
   return createClient<Database>(url, key, {
     auth: { persistSession: false },
     global: {
