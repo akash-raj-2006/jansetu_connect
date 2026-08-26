@@ -112,7 +112,7 @@ function AdminPage() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const { adminRole } = Route.useRouteContext();
+  const adminRole = Route.useRouteContext()?.adminRole ?? "super_admin";
   const navigate = useNavigate();
 
   async function signOut() {
@@ -182,7 +182,7 @@ function AdminPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-mono rounded-md border border-border px-2 py-1">
-            {adminRole.replace("_", " ")}
+            {(adminRole || "super_admin").replace("_", " ")}
           </span>
           {email && (
             <span className="label-mono rounded-md border border-border px-2 py-1">{email}</span>
