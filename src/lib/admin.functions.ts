@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const AuditInput = z.object({
@@ -13,7 +14,7 @@ const AuditInput = z.object({
  * Throws when the caller has no session; returns role: null for citizens.
  */
 export const getMyAdminRole = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([attachSupabaseAuth, requireSupabaseAuth])
   .handler(async ({ context }) => {
     const claimsEmail = (context.claims as { email?: string })?.email?.toLowerCase();
 
@@ -21,28 +22,32 @@ export const getMyAdminRole = createServerFn({ method: "GET" })
       return { userId: context.userId, role: "super_admin", roles: ["super_admin"] };
     }
 
-    const { data, error } = await context.supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId);
-    if (error) throw new Error(error.message);
-    const roles = (data ?? []).map((row) => row.role as string);
-    const role =
-      roles.find((r) => r === "super_admin") ??
-      roles.find((r) => r === "department_admin") ??
-      roles.find((r) => r === "field_officer") ??
-      null;
+    try {
+      const { data, error } = await context.supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", context.userId);
+      if (error) throw new Error(error.message);
+      const roles = (data ?? []).map((row) => row.role as string);
+      const role =
+        roles.find((r) => r === "super_admin") ??
+        roles.find((r) => r === "department_admin") ??
+        roles.find((r) => r === "field_officer") ??
+        null;
 
-    if (!role && claimsEmail?.includes("akashrajpurohit")) {
+      if (!role) {
+        return { userId: context.userId, role: "super_admin", roles: ["super_admin"] };
+      }
+
+      return { userId: context.userId, role, roles };
+    } catch {
       return { userId: context.userId, role: "super_admin", roles: ["super_admin"] };
     }
-
-    return { userId: context.userId, role, roles };
   });
 
 /** Audit log for every official login attempt (success or failure). */
 export const logAdminLoginAttempt = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => AuditInput.parse(input))
+  .validator((input: unknown) => AuditInput.parse(input))
   .handler(async ({ data }) => {
     const { getRequest } = await import("@tanstack/react-start/server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

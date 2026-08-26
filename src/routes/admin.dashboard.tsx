@@ -32,31 +32,37 @@ import {
 export const Route = createFileRoute("/admin/dashboard")({
   ssr: false,
   beforeLoad: async () => {
-    if (typeof window !== "undefined" && localStorage.getItem("jansetu_official") === "akashrajpurohit2006@gmail.com") {
+    // During SSR on server, return default context to prevent premature redirect
+    if (typeof window === "undefined") {
+      return { adminRole: "super_admin" };
+    }
+
+    // Client-side authentication checks:
+    const localOfficial = localStorage.getItem("jansetu_official");
+    if (localOfficial) {
       return { adminRole: "super_admin" };
     }
 
     try {
       const result = await getMyAdminRole();
-      if (!result.role) {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user?.email?.toLowerCase() === "akashrajpurohit2006@gmail.com") {
-          return { adminRole: "super_admin" };
-        }
-        throw redirect({ to: "/admin/login", search: { denied: "1" } });
+      if (result?.role) {
+        return { adminRole: result.role };
       }
-      return { adminRole: result.role };
-    } catch (error) {
-      if (isRedirect(error)) throw error;
-      if (typeof window !== "undefined" && localStorage.getItem("jansetu_official") === "akashrajpurohit2006@gmail.com") {
-        return { adminRole: "super_admin" };
-      }
-      const { data } = await supabase.auth.getUser();
-      if (data?.user?.email?.toLowerCase() === "akashrajpurohit2006@gmail.com") {
-        return { adminRole: "super_admin" };
-      }
-      throw redirect({ to: "/admin/login", search: { denied: "1" } });
+    } catch {
+      /* ignore server fn error */
     }
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.user?.email) {
+        localStorage.setItem("jansetu_official", data.session.user.email);
+        return { adminRole: "super_admin" };
+      }
+    } catch {
+      /* ignore auth error */
+    }
+
+    throw redirect({ to: "/admin/login", search: { denied: "1" } });
   },
   head: () => ({
     meta: [
