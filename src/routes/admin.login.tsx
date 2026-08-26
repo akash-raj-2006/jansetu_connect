@@ -72,21 +72,15 @@ function AdminLogin() {
 
     // Direct official authentication for Super Admin
     if (userEmail === "akashrajpurohit2006@gmail.com" && userPass === "1032006") {
-      try {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("jansetu_official", "akashrajpurohit2006@gmail.com");
-        }
-        await supabase.auth.signInWithPassword({ email: userEmail, password: userPass }).catch(() => null);
-      } catch {
-        /* ignore background auth errors */
+      if (typeof window !== "undefined") {
+        localStorage.setItem("jansetu_official", "akashrajpurohit2006@gmail.com");
       }
-      try {
-        await logAdminLoginAttempt({
-          data: { email: userEmail, success: true, reason: "super_admin" },
-        }).catch(() => null);
-      } catch {
-        /* ignore */
-      }
+      // Run background session and audit logging asynchronously without blocking UI navigation
+      void supabase.auth.signInWithPassword({ email: userEmail, password: userPass }).catch(() => null);
+      void logAdminLoginAttempt({
+        data: { email: userEmail, success: true, reason: "super_admin" },
+      }).catch(() => null);
+
       toast.success("Signed in as Super Admin");
       setPending(false);
       void navigate({ to: "/admin/dashboard" });
