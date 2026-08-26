@@ -263,39 +263,46 @@ function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((report) => (
-                    <tr
-                      key={report.id}
-                      className={`border-b border-border/70 last:border-0 ${
-                        report.id === openId ? "bg-secondary" : "hover:bg-secondary/60"
-                      }`}
-                    >
-                      <td className="px-2 py-2 font-mono text-xs font-medium">{report.tracking_code}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{wardName.get(report.ward_id) ?? report.ward_id}</td>
-                      <td className="px-2 py-2">
-                        <span
-                          className="inline-flex items-center gap-1.5 text-xs capitalize"
-                          style={{ color: CATEGORY_COLOR[report.category as Category] }}
-                        >
+                  {rows.map((report) => {
+                    const category = (report.category || "roads") as Category;
+                    const catColor = CATEGORY_COLOR[category] || "#888";
+                    const statusLabel = (report.status || "submitted").replace("_", " ");
+                    const urgency = Number(report.urgency) || 3;
+                    const createdDate = report.created_at ? new Date(report.created_at).toLocaleDateString("en-IN") : "—";
+                    return (
+                      <tr
+                        key={report.id}
+                        className={`border-b border-border/70 last:border-0 ${
+                          report.id === openId ? "bg-secondary" : "hover:bg-secondary/60"
+                        }`}
+                      >
+                        <td className="px-2 py-2 font-mono text-xs font-medium">{report.tracking_code || report.id}</td>
+                        <td className="px-2 py-2 whitespace-nowrap">{wardName.get(report.ward_id) ?? report.ward_id}</td>
+                        <td className="px-2 py-2">
                           <span
-                            className="size-2 rounded-sm"
-                            style={{ backgroundColor: CATEGORY_COLOR[report.category as Category] }}
-                          />
-                          {report.category}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2 font-mono text-xs tabular-nums">{report.urgency}/5</td>
-                      <td className="px-2 py-2 text-xs capitalize">{report.status.replace("_", " ")}</td>
-                      <td className="px-2 py-2 font-mono text-xs text-muted-foreground">
-                        {new Date(report.created_at).toLocaleDateString("en-IN")}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        <Button size="sm" variant="secondary" onClick={() => openRow(report)}>
-                          Manage
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                            className="inline-flex items-center gap-1.5 text-xs capitalize"
+                            style={{ color: catColor }}
+                          >
+                            <span
+                              className="size-2 rounded-sm"
+                              style={{ backgroundColor: catColor }}
+                            />
+                            {category}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 font-mono text-xs tabular-nums">{urgency}/5</td>
+                        <td className="px-2 py-2 text-xs capitalize">{statusLabel}</td>
+                        <td className="px-2 py-2 font-mono text-xs text-muted-foreground">
+                          {createdDate}
+                        </td>
+                        <td className="px-2 py-2 text-right">
+                          <Button size="sm" variant="secondary" onClick={() => openRow(report)}>
+                            Manage
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {rows.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-2 py-6 text-center text-sm text-muted-foreground">
@@ -311,8 +318,8 @@ function AdminPage() {
 
         {active && (
           <Panel
-            title={`Manage ${active.tracking_code}`}
-            hint={`${wardName.get(active.ward_id) ?? active.ward_id} · ${active.category} · urgency ${active.urgency}/5`}
+            title={`Manage ${active.tracking_code || active.id}`}
+            hint={`${wardName.get(active.ward_id) ?? active.ward_id} · ${active.category || "General"} · urgency ${Number(active.urgency) || 3}/5`}
           >
             <div className="grid items-start gap-4 lg:grid-cols-[1.2fr_1fr]">
               <div className="space-y-3 text-sm">
@@ -321,16 +328,18 @@ function AdminPage() {
                   <span>
                     {active.address || "No address captured"}
                     <span className="block font-mono text-xs">
-                      {active.lat.toFixed(5)}, {active.lng.toFixed(5)}
+                      {(Number(active.lat) || 0).toFixed(5)}, {(Number(active.lng) || 0).toFixed(5)}
                     </span>
                   </span>
                 </p>
-                <p>{active.translated_text}</p>
-                <p className="text-xs text-muted-foreground italic">{active.original_text}</p>
+                <p>{active.translated_text || active.original_text || "No report description"}</p>
+                {active.original_text && (
+                  <p className="text-xs text-muted-foreground italic">{active.original_text}</p>
+                )}
                 <p className="label-mono">
-                  {LANGUAGE_LABELS[active.language] ?? active.language} · {active.channel} · {active.sentiment}
+                  {LANGUAGE_LABELS[active.language] ?? active.language ?? "en"} · {active.channel ?? "web"} · {active.sentiment ?? "neutral"}
                 </p>
-                <ImageGallery paths={active.image_paths} />
+                <ImageGallery paths={active.image_paths ?? []} />
               </div>
 
               <div className="space-y-3 rounded-xl border border-border-strong bg-surface-2/50 p-4">
