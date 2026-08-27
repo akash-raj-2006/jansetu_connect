@@ -71,8 +71,10 @@ export function ImageUploader({
         );
         setItems((prev) => prev.map((i) => (i.key === key ? { ...i, path, progress: 100 } : i)));
       } catch (error) {
+        console.error("Image upload error:", error);
         const message = error instanceof Error ? error.message : "Upload failed.";
         setItems((prev) => prev.map((i) => (i.key === key ? { ...i, error: message } : i)));
+        setErrors((prev) => [...prev, `${file.name}: ${message}`]);
       }
     }
   }
