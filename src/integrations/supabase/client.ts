@@ -28,20 +28,27 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 
+const DEFAULT_SUPABASE_URL = 'https://rzjvklvsbrrgfnhxmdgq.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu';
+
+/** Return the value only if it looks like a valid HTTP(S) URL, else undefined. */
+function validHttpUrl(v: unknown): string | undefined {
+  if (typeof v !== 'string' || !v.trim()) return undefined;
+  try { const u = new URL(v.trim()); return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href.replace(/\/$/, '') : undefined; }
+  catch { return undefined; }
+}
+
 function createSupabaseClient() {
-  // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  // Always fallback to default project URL and publishable key to prevent missing-env crash
   const SUPABASE_URL =
-    import.meta.env['VITE_SUPABASE_URL'] ||
-    process.env['SUPABASE_URL'] ||
-    process.env['VITE_SUPABASE_URL'] ||
-    'https://rzjvklvsbrrgfnhxmdgq.supabase.co';
+    validHttpUrl(import.meta.env['VITE_SUPABASE_URL']) ??
+    validHttpUrl(typeof process !== 'undefined' ? process.env?.['SUPABASE_URL'] : undefined) ??
+    validHttpUrl(typeof process !== 'undefined' ? process.env?.['VITE_SUPABASE_URL'] : undefined) ??
+    DEFAULT_SUPABASE_URL;
   const SUPABASE_PUBLISHABLE_KEY =
     import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
-    process.env['SUPABASE_PUBLISHABLE_KEY'] ||
-    process.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
-    'sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu';
+    (typeof process !== 'undefined' ? process.env?.['SUPABASE_PUBLISHABLE_KEY'] : undefined) ||
+    (typeof process !== 'undefined' ? process.env?.['VITE_SUPABASE_PUBLISHABLE_KEY'] : undefined) ||
+    DEFAULT_SUPABASE_KEY;
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
