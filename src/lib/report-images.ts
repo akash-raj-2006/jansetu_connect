@@ -44,13 +44,20 @@ export async function compressImage(file: File): Promise<Blob> {
   }
 }
 
+/** Return the value only if it looks like a valid HTTP(S) URL, else undefined. */
+function validHttpUrl(v: unknown): string | undefined {
+  if (typeof v !== 'string' || !v.trim()) return undefined;
+  try { const u = new URL(v.trim()); return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href.replace(/\/$/, '') : undefined; }
+  catch { return undefined; }
+}
+
 /** Upload one image with real progress reporting (XHR gives us upload events). */
 export function uploadImage(
   blob: Blob,
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
 ): Promise<string> {
-  const url = (import.meta.env["VITE_SUPABASE_URL"] || "https://rzjvklvsbrrgfnhxmdgq.supabase.co") as string;
+  const url = validHttpUrl(import.meta.env["VITE_SUPABASE_URL"]) ?? "https://rzjvklvsbrrgfnhxmdgq.supabase.co";
   const key = (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || "sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu") as string;
   const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.jpg`;
 
@@ -58,6 +65,7 @@ export function uploadImage(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${url}/storage/v1/object/${IMAGE_BUCKET}/${path}`);
     xhr.setRequestHeader("apikey", key);
+    xhr.setRequestHeader("Authorization", `Bearer ${key}`);
     xhr.setRequestHeader("x-upsert", "true");
     xhr.setRequestHeader("content-type", blob.type || "image/jpeg");
     xhr.upload.onprogress = (event) => {
