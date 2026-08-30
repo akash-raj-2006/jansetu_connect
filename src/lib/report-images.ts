@@ -2,7 +2,7 @@
  * Browser-side helpers for citizen photo evidence.
  *
  * Images are compressed in the browser, uploaded directly to Supabase Storage
- * using the public API key with raw XHR/fetch (bypassing JWT issues), and only
+ * using the public API key with raw XHR (with accurate progress events), and only
  * their storage paths are saved with the report.
  */
 
@@ -91,7 +91,6 @@ export async function compressImage(file: File): Promise<Blob> {
 /**
  * Upload one image directly to Supabase Storage via REST API.
  * Uses XMLHttpRequest for real-time progress events.
- * Bypasses SDK JWT issues by using pure apikey header.
  */
 export function uploadImage(
   blob: Blob,
@@ -109,15 +108,11 @@ export function uploadImage(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", endpoint, true);
 
-    // Standard headers for Supabase Storage REST API
+    // Supabase storage requires both apikey and Authorization headers
     xhr.setRequestHeader("apikey", key);
+    xhr.setRequestHeader("Authorization", `Bearer ${key}`);
     xhr.setRequestHeader("Content-Type", mimeType);
     xhr.setRequestHeader("x-upsert", "true");
-
-    // Old JWT keys support Bearer, new sb_publishable_* keys do not
-    if (key.startsWith("eyJ")) {
-      xhr.setRequestHeader("Authorization", `Bearer ${key}`);
-    }
 
     if (signal) {
       signal.addEventListener("abort", () => xhr.abort());
@@ -173,6 +168,7 @@ export async function getReportImageUrls(paths: string[]): Promise<string[]> {
           method: "POST",
           headers: {
             apikey: key,
+            Authorization: `Bearer ${key}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ expiresIn: 3600 }),
