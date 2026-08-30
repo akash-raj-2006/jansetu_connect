@@ -39,8 +39,11 @@ function getSupabaseConfig() {
 }
 
 /**
- * Server function: uploads an image to Supabase Storage via raw REST API.
- * Uses only raw fetch — no Supabase SDK — to avoid JWT/URL init errors.
+ * Server function: uploads an image to the public Supabase Storage bucket.
+ *
+ * The bucket is set to public=true so no JWT is required for uploads —
+ * only the apikey header is needed. This avoids "Invalid Compact JWS"
+ * from the new sb_publishable_* key format which is not a valid JWT.
  */
 export const uploadReportImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => UploadInput.parse(input))
@@ -61,6 +64,7 @@ export const uploadReportImage = createServerFn({ method: "POST" })
         : "jpg";
     const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
 
+    // Use /object/ endpoint with apikey only (public bucket — no JWT needed).
     const endpoint = `${url}/storage/v1/object/${IMAGE_BUCKET}/${path}`;
 
     const headers: Record<string, string> = {
@@ -69,10 +73,10 @@ export const uploadReportImage = createServerFn({ method: "POST" })
       "x-upsert": "true",
     };
 
-    // Old-format JWT keys can be sent as Bearer; new sb_* keys must NOT be.
-    const isOldJwtKey =
-      !key.startsWith("sb_publishable_") && !key.startsWith("sb_secret_");
-    if (isOldJwtKey) {
+    // Only add Bearer for old-format JWT keys (service role, old anon key).
+    // New sb_publishable_* / sb_secret_* keys must NOT be sent as Bearer.
+    const isNewKey = key.startsWith("sb_publishable_") || key.startsWith("sb_secret_");
+    if (!isNewKey) {
       headers["Authorization"] = `Bearer ${key}`;
     }
 
@@ -83,15 +87,17 @@ export const uploadReportImage = createServerFn({ method: "POST" })
     });
 
     if (!response.ok) {
-      const body = await response.text();
+      const bodyText = await response.text();
       let msg = `Upload failed (${response.status})`;
       try {
-        const json = JSON.parse(body);
-        msg = json.message || json.error || msg;
+        const json = JSON.parse(bodyText);
+        msg = (json as { message?: string; error?: string }).message
+          || (json as { error?: string }).error
+          || msg;
       } catch {
-        if (body) msg = body;
+        if (bodyText) msg = bodyText;
       }
-      console.error("Storage upload failed:", response.status, body);
+      console.error("Storage upload failed:", response.status, bodyText);
       return { ok: false as const, error: msg };
     }
 
