@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { IMAGE_BUCKET } from "@/lib/report-images";
+import { getReportImageUrls } from "@/lib/report-images";
 
 /** Resolves private storage paths to temporary viewing links. */
 function useSignedUrls(paths: string[]) {
@@ -14,12 +13,9 @@ function useSignedUrls(paths: string[]) {
       setUrls([]);
       return;
     }
-    void supabase.storage
-      .from(IMAGE_BUCKET)
-      .createSignedUrls(paths, 3600)
-      .then(({ data }) => {
-        if (!cancelled) setUrls((data ?? []).map((d) => d.signedUrl).filter(Boolean) as string[]);
-      });
+    void getReportImageUrls(paths).then((resolved) => {
+      if (!cancelled) setUrls(resolved);
+    });
     return () => {
       cancelled = true;
     };

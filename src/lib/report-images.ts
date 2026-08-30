@@ -1,8 +1,9 @@
 /**
  * Browser-side helpers for citizen photo evidence.
  *
- * Images are compressed in the browser, uploaded straight to cloud storage,
- * and only their storage *paths* are saved with the report — never binary data.
+ * Images are compressed in the browser, uploaded directly to Supabase Storage
+ * using the public API key with raw XHR/fetch (bypassing JWT issues), and only
+ * their storage paths are saved with the report.
  */
 
 export const IMAGE_BUCKET = "report-images";
@@ -11,6 +12,45 @@ export const MAX_BYTES = 5 * 1024 * 1024;
 export const MAX_WIDTH = 1600;
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
 const ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp"];
+
+const DEFAULT_SUPABASE_URL = "https://rzjvklvsbrrgfnhxmdgq.supabase.co";
+const DEFAULT_SUPABASE_KEY = "sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu";
+
+/** Helper to validate URL strings to avoid picking up corrupted env vars. */
+function validHttpUrl(v: unknown): string | undefined {
+  if (typeof v !== "string" || !v.trim()) return undefined;
+  try {
+    const u = new URL(v.trim());
+    return u.protocol === "http:" || u.protocol === "https:"
+      ? u.href.replace(/\/$/, "")
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Resolves Supabase URL & publishable API key safely. */
+export function getSupabaseConfig(): { url: string; key: string } {
+  let url = DEFAULT_SUPABASE_URL;
+  const envUrl = validHttpUrl(
+    (typeof import.meta !== "undefined" && import.meta.env?.["VITE_SUPABASE_URL"]) ||
+    (typeof process !== "undefined" && process.env?.["VITE_SUPABASE_URL"]) ||
+    (typeof process !== "undefined" && process.env?.["SUPABASE_URL"])
+  );
+  if (envUrl) url = envUrl;
+
+  let key = DEFAULT_SUPABASE_KEY;
+  const envKey =
+    (typeof import.meta !== "undefined" && import.meta.env?.["VITE_SUPABASE_PUBLISHABLE_KEY"]) ||
+    (typeof process !== "undefined" && process.env?.["VITE_SUPABASE_PUBLISHABLE_KEY"]) ||
+    (typeof process !== "undefined" && process.env?.["SUPABASE_PUBLISHABLE_KEY"]);
+
+  if (typeof envKey === "string" && envKey.trim().length > 10) {
+    key = envKey.trim();
+  }
+
+  return { url, key };
+}
 
 export function validateImageFile(file: File): string | null {
   const mime = file.type?.toLowerCase() ?? "";
@@ -48,44 +88,107 @@ export async function compressImage(file: File): Promise<Blob> {
   }
 }
 
-import { uploadReportImage } from "./upload-image.functions";
-
 /**
- * Upload one image via the server function.
- *
- * The image is compressed on the client, converted to base64, and sent to
- * a server function that uploads it to Supabase Storage. This avoids the
- * "Invalid Compact JWS" error caused by the new-format publishable key
- * being used as a JWT on the client side.
+ * Upload one image directly to Supabase Storage via REST API.
+ * Uses XMLHttpRequest for real-time progress events.
+ * Bypasses SDK JWT issues by using pure apikey header.
  */
-export async function uploadImage(
+export function uploadImage(
   blob: Blob,
   onProgress: (percent: number) => void,
-  _signal?: AbortSignal,
+  signal?: AbortSignal,
 ): Promise<string> {
-  const mimeType = blob.type || "image/jpeg";
+  return new Promise((resolve, reject) => {
+    const mimeType = blob.type || "image/jpeg";
+    const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "jpg";
+    const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
 
-  onProgress(10);
+    const { url, key } = getSupabaseConfig();
+    const endpoint = `${url}/storage/v1/object/${IMAGE_BUCKET}/${path}`;
 
-  // Convert blob to base64 for the server function
-  const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]!);
-  }
-  const base64 = btoa(binary);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", endpoint, true);
 
-  onProgress(30);
+    // Standard headers for Supabase Storage REST API
+    xhr.setRequestHeader("apikey", key);
+    xhr.setRequestHeader("Content-Type", mimeType);
+    xhr.setRequestHeader("x-upsert", "true");
 
-  const result = await uploadReportImage({
-    data: { base64, mimeType },
+    // Old JWT keys support Bearer, new sb_publishable_* keys do not
+    if (key.startsWith("eyJ")) {
+      xhr.setRequestHeader("Authorization", `Bearer ${key}`);
+    }
+
+    if (signal) {
+      signal.addEventListener("abort", () => xhr.abort());
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        onProgress(Math.min(99, Math.max(5, percent)));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100);
+        resolve(path);
+      } else {
+        let message = `Upload failed (${xhr.status})`;
+        try {
+          const res = JSON.parse(xhr.responseText);
+          message = res.message || res.error || message;
+        } catch {
+          if (xhr.responseText) message = xhr.responseText;
+        }
+        reject(new Error(message));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network error during photo upload. Please check your connection."));
+    };
+
+    xhr.onabort = () => {
+      reject(new Error("Upload cancelled."));
+    };
+
+    xhr.send(blob);
   });
+}
 
-  if (!result.ok) {
-    throw new Error(result.error || "Upload failed.");
-  }
+/**
+ * Creates temporary signed URLs for viewing uploaded report images.
+ */
+export async function getReportImageUrls(paths: string[]): Promise<string[]> {
+  if (!paths || paths.length === 0) return [];
+  const { url, key } = getSupabaseConfig();
 
-  onProgress(100);
-  return result.path;
+  const results = await Promise.all(
+    paths.map(async (path) => {
+      try {
+        const endpoint = `${url}/storage/v1/object/sign/${IMAGE_BUCKET}/${path}`;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            apikey: key,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ expiresIn: 3600 }),
+        });
+
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data?.signedURL) {
+          return `${url}/storage/v1${data.signedURL}`;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return results.filter(Boolean) as string[];
 }
