@@ -7,30 +7,40 @@ const UploadInput = z.object({
 });
 
 const IMAGE_BUCKET = "report-images";
+const DEFAULT_SUPABASE_URL = "https://rzjvklvsbrrgfnhxmdgq.supabase.co";
+const DEFAULT_SUPABASE_KEY = "sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu";
+
+/** Only accept the value if it's a real HTTP(S) URL, not a git command or junk. */
+function validHttpUrl(v: unknown): string | undefined {
+  if (typeof v !== "string" || !v.trim()) return undefined;
+  try {
+    const u = new URL(v.trim());
+    return u.protocol === "http:" || u.protocol === "https:"
+      ? u.href.replace(/\/$/, "")
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function getSupabaseConfig() {
-  // Try every known env var name, falling back to hardcoded defaults.
-  const url = (
-    process.env["SUPABASE_URL"] ||
-    process.env["VITE_SUPABASE_URL"] ||
-    "https://rzjvklvsbrrgfnhxmdgq.supabase.co"
-  ).replace(/\/$/, "");
+  const url =
+    validHttpUrl(process.env["SUPABASE_URL"]) ??
+    validHttpUrl(process.env["VITE_SUPABASE_URL"]) ??
+    DEFAULT_SUPABASE_URL;
 
   const key =
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
     process.env["SUPABASE_PUBLISHABLE_KEY"] ||
     process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-    "sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu";
+    DEFAULT_SUPABASE_KEY;
 
   return { url, key };
 }
 
 /**
  * Server function: uploads an image to Supabase Storage via raw REST API.
- *
- * Uses only raw fetch (no Supabase SDK) to avoid "Invalid Compact JWS" and
- * "Invalid supabaseUrl" errors caused by the new `sb_publishable_*` API key
- * format that isn't a valid JWT.
+ * Uses only raw fetch — no Supabase SDK — to avoid JWT/URL init errors.
  */
 export const uploadReportImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => UploadInput.parse(input))
@@ -59,9 +69,9 @@ export const uploadReportImage = createServerFn({ method: "POST" })
       "x-upsert": "true",
     };
 
-    // If the key looks like a real JWT (old format), also send it as Bearer.
-    // New-format keys (sb_publishable_*, sb_secret_*) must NOT be sent as Bearer.
-    const isOldJwtKey = !key.startsWith("sb_publishable_") && !key.startsWith("sb_secret_");
+    // Old-format JWT keys can be sent as Bearer; new sb_* keys must NOT be.
+    const isOldJwtKey =
+      !key.startsWith("sb_publishable_") && !key.startsWith("sb_secret_");
     if (isOldJwtKey) {
       headers["Authorization"] = `Bearer ${key}`;
     }
@@ -77,9 +87,9 @@ export const uploadReportImage = createServerFn({ method: "POST" })
       let msg = `Upload failed (${response.status})`;
       try {
         const json = JSON.parse(body);
-        msg = json.message || json.error || json.statusCode ? `${json.error}: ${json.message}` : msg;
+        msg = json.message || json.error || msg;
       } catch {
-        // use default message
+        if (body) msg = body;
       }
       console.error("Storage upload failed:", response.status, body);
       return { ok: false as const, error: msg };
