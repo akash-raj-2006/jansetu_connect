@@ -6,41 +6,38 @@ const UploadInput = z.object({
   mimeType: z.string().default("image/jpeg"),
 });
 
-const DEFAULT_SUPABASE_URL = "https://rzjvklvsbrrgfnhxmdgq.supabase.co";
-const DEFAULT_SUPABASE_KEY = "sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu";
 const IMAGE_BUCKET = "report-images";
 
+function getSupabaseConfig() {
+  // Try every known env var name, falling back to hardcoded defaults.
+  const url = (
+    process.env["SUPABASE_URL"] ||
+    process.env["VITE_SUPABASE_URL"] ||
+    "https://rzjvklvsbrrgfnhxmdgq.supabase.co"
+  ).replace(/\/$/, "");
+
+  const key =
+    process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
+    process.env["SUPABASE_PUBLISHABLE_KEY"] ||
+    process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+    "sb_publishable_4RCnS_taXL5Xdwb7gnqaoA_1nYyAoIu";
+
+  return { url, key };
+}
+
 /**
- * Server function: uploads an image to Supabase Storage.
+ * Server function: uploads an image to Supabase Storage via raw REST API.
  *
- * The new `sb_publishable_*` API keys are NOT valid JWTs, so the Supabase
- * Storage API rejects them when sent as Bearer tokens (or even when the
- * apikey header is parsed as a JWT for role resolution). By routing the
- * upload through the server, we use the Supabase JS client which handles
- * the new key format correctly on the server side (no browser storage/auth
- * issues) and can use the service-role key if available.
+ * Uses only raw fetch (no Supabase SDK) to avoid "Invalid Compact JWS" and
+ * "Invalid supabaseUrl" errors caused by the new `sb_publishable_*` API key
+ * format that isn't a valid JWT.
  */
 export const uploadReportImage = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => UploadInput.parse(input))
   .handler(async ({ data }) => {
-    const { createClient } = await import("@supabase/supabase-js");
+    const { url, key } = getSupabaseConfig();
 
-    const url =
-      process.env["SUPABASE_URL"] ||
-      process.env["VITE_SUPABASE_URL"] ||
-      DEFAULT_SUPABASE_URL;
-
-    // Prefer the service-role key for storage operations (bypasses RLS).
-    // Fall back to publishable key if service-role is not set.
-    const key =
-      process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
-      process.env["SUPABASE_PUBLISHABLE_KEY"] ||
-      process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-      DEFAULT_SUPABASE_KEY;
-
-    const isNewKey = key.startsWith("sb_publishable_") || key.startsWith("sb_secret_");
-
-    // Decode base64 to binary buffer
+    // Decode base64 to binary
     const binaryStr = atob(data.base64);
     const bytes = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) {
@@ -54,45 +51,38 @@ export const uploadReportImage = createServerFn({ method: "POST" })
         : "jpg";
     const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
 
-    if (isNewKey) {
-      // For new-format keys, use raw fetch with only the apikey header.
-      // The server's PostgREST/Storage will accept apikey for role resolution
-      // on newer Supabase instances that support the new key format.
-      const response = await fetch(`${url}/storage/v1/object/${IMAGE_BUCKET}/${path}`, {
-        method: "POST",
-        headers: {
-          apikey: key,
-          "Content-Type": data.mimeType,
-          "x-upsert": "true",
-        },
-        body: bytes,
-      });
+    const endpoint = `${url}/storage/v1/object/${IMAGE_BUCKET}/${path}`;
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        const msg = (body as { message?: string; error?: string }).message
-          || (body as { error?: string }).error
-          || `Upload failed (${response.status})`;
-        return { ok: false as const, error: msg };
-      }
+    const headers: Record<string, string> = {
+      "apikey": key,
+      "Content-Type": data.mimeType,
+      "x-upsert": "true",
+    };
 
-      return { ok: true as const, path };
+    // If the key looks like a real JWT (old format), also send it as Bearer.
+    // New-format keys (sb_publishable_*, sb_secret_*) must NOT be sent as Bearer.
+    const isOldJwtKey = !key.startsWith("sb_publishable_") && !key.startsWith("sb_secret_");
+    if (isOldJwtKey) {
+      headers["Authorization"] = `Bearer ${key}`;
     }
 
-    // For old-format JWT keys, use the Supabase SDK normally.
-    const supabase = createClient(url, key, {
-      auth: { persistSession: false },
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: bytes,
     });
 
-    const { error } = await supabase.storage
-      .from(IMAGE_BUCKET)
-      .upload(path, bytes, {
-        upsert: true,
-        contentType: data.mimeType,
-      });
-
-    if (error) {
-      return { ok: false as const, error: error.message || "Upload failed." };
+    if (!response.ok) {
+      const body = await response.text();
+      let msg = `Upload failed (${response.status})`;
+      try {
+        const json = JSON.parse(body);
+        msg = json.message || json.error || json.statusCode ? `${json.error}: ${json.message}` : msg;
+      } catch {
+        // use default message
+      }
+      console.error("Storage upload failed:", response.status, body);
+      return { ok: false as const, error: msg };
     }
 
     return { ok: true as const, path };
