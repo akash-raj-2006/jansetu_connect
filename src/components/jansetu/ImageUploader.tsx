@@ -38,7 +38,16 @@ export function ImageUploader({
     changeRef.current(items.filter((item) => item.path).map((item) => item.path!));
   }, [items]);
 
+  // Auto-dismiss errors after 5 seconds
+  useEffect(() => {
+    if (errors.length === 0) return;
+    const timer = setTimeout(() => setErrors([]), 5000);
+    return () => clearTimeout(timer);
+  }, [errors]);
+
   async function addFiles(files: File[]) {
+    // Clear stale errors before processing a new batch
+    setErrors([]);
     const messages: string[] = [];
     const room = MAX_IMAGES - items.filter((item) => !item.error).length;
     if (room <= 0) {
@@ -53,7 +62,7 @@ export function ImageUploader({
     }
     if (files.length > room)
       messages.push(`Only ${MAX_IMAGES} photos per report — extras skipped.`);
-    setErrors(messages);
+    if (messages.length > 0) setErrors(messages);
 
     for (const file of accepted) {
       const key = crypto.randomUUID();
@@ -81,6 +90,8 @@ export function ImageUploader({
 
   function remove(key: string) {
     setItems((prev) => prev.filter((item) => item.key !== key));
+    // Clear errors when user removes an image (frees up a slot, old errors no longer relevant)
+    setErrors([]);
   }
 
   return (
